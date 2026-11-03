@@ -56,6 +56,17 @@ The box needs **libjxl 0.11 or newer**, **lrzsz** (`rz`/`sz`, for uploads and do
    BBS must hand it the connection that way (Mystic does on Linux).
    On Mystic that is a menu command **D3** with the data `<door folder>/amigadoor <mystic>/temp%3`.
 
+## Raspberry Pi and other ARM boxes (untested)
+
+Nothing in the door or the build is x86-specific (no assembly, no SIMD, no `-march`), and PUAE builds on ARM, so the
+steps above should work as they are on a Pi running 64-bit Linux: `make`, then `sh build-core.sh`. Not tried yet;
+two things to watch:
+
+- **libjxl 0.11 or newer.** Raspberry Pi OS based on Debian Bookworm ships libjxl 0.7, which is too old: use the
+  Trixie-based release (it has 0.11) or build libjxl from source (https://github.com/libjxl/libjxl).
+- **Speed.** Every caller runs a whole Amiga at full speed plus a JPEG XL encoder. A Pi 5 should manage a caller or
+  two; a Pi 4 may struggle with A1200 (AGA) games. Watch `logs/` for skipped frames and limit the door's nodes to suit.
+
 ## What callers see
 
 The disclaimer, a short how-to, then an Amiga 1200 waiting for a disk. Everything else is in the **F12** menu
