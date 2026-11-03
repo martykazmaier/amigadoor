@@ -1,0 +1,30 @@
+# Build output
+*.o
+door/amigadoor
+door/amigadoor.exe
+*.so
+*.dll
+door/libretro-uae-build/
+spike/a1200spike
+
+# Kickstart ROMs are never published: each sysop supplies their own (door/INSTALL.md)
+door/system/
+*.rom
+kick*.A500
+kick*.A600
+kick*.A1200
+
+# Per-BBS data
+door/logs/
+door/players/
+door/library/*
+!door/library/library.txt
+
+# Python
+__pycache__/
+
+# Private working notes (BBS box, LAN, personal paths): stay local
+HANDOFF.md
+
+# Test-harness build output
+tools/*.exe

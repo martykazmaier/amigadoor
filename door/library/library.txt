@@ -1,0 +1,5 @@
+# title | one-line description | disk files in this folder, comma-separated (the first in DF0:) | machine
+# The machine is A500 or A1200, with NTSC after it for an American title (PAL otherwise). Left out, a WHDLoad .lha
+# gets an A1200 and an .adf an A500. Examples, with files the repo doesn't carry (see INSTALL.md):
+Super Stardust | Team17 shooter, AGA (WHDLoad) | SuperStardust.lha | A1200
+PETSCII Robots | Attack of the PETSCII Robots (8-Bit Productions) | petrobots.adf | A500

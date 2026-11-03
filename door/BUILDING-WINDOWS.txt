@@ -1,0 +1,59 @@
+Building the Amiga door for Windows (32-bit)
+============================================
+
+Both pieces are cross-compiled on Linux with llvm-mingw
+(github.com/mstorsjo/llvm-mingw, release 20260922, the msvcrt build), whose
+i686-w64-mingw32-gcc is on PATH below. mingw-w64's own i686 gcc should work
+too. (As the C64 door's build.)
+
+The door, amigadoor.exe
+-----------------------
+In this folder:
+
+    make win32                  (or: make win32 WIN32_CC=<your i686 gcc>)
+
+Everything is linked statically; it needs only Windows' own DLLs. On Windows
+the door uses win32.c (the telnet socket from DOOR32.SYS, telnet.c, the Amiga
+side as a second copy of the .exe) and zmodem.c (no rz/sz on Windows). Two
+differences from Linux: the core's save folder is the caller's own
+players\<player>\amiga\ (no symlinks for WHDSaves), and there is no sandbox.
+
+The core, puae_libretro.dll
+---------------------------
+PUAE from libretro/libretro-uae at commit e2e31c7 (as the Linux build), with
+no patch: it carries no Kickstart.
+
+    git clone https://github.com/libretro/libretro-uae.git
+    cd libretro-uae
+    git checkout e2e31c7
+
+The version-script flag in its Makefile's Windows section doesn't suit
+llvm-mingw's linker (lld), so it goes:
+
+    sed -i 's#-Wl,--version-script=$(CORE_DIR)/libretro/link.T -Wl,--no-undefined#-Wl,--no-undefined#' Makefile
+
+    make platform=win CC=i686-w64-mingw32-gcc CXX=i686-w64-mingw32-g++ \
+         AR=i686-w64-mingw32-ar -j4
+
+The result needs only msvcrt.dll and KERNEL32.dll.
+
+libjxl
+------
+jxl.dll and the DLLs beside it are libjxl 0.12.0's 32-bit Windows release, as
+shipped with the C64 and Duke Nukem 3D doors; the door loads jxl.dll at run
+time from its own folder.
+
+Testing without a BBS (from WSL)
+--------------------------------
+tools/winlaunch.exe stands in for Mystic for Windows (a loopback telnet socket
+handed over in DOOR32.SYS). With a test folder holding the door, the core,
+libjxl's DLLs, the Kickstarts and a library:
+
+    python3 tools/test_windoor.py <folder> --seconds 30
+    python3 tools/test_windoor.py <folder> --a500 --title 1 --seconds 60
+    python3 tools/test_windoor.py <folder> --title 1 --seconds 30 --machine-at 15
+    SZ="ssh box cd dir && sz" python3 tools/test_winupload.py <folder> <disk.adf>
+
+Tested 2026-10-28: Super Stardust (WHDLoad, A1200) at 47 pictures a second,
+Lotus Turbo Challenge II (ADF, A500), machine switch, reset, and uploads of an
+.adf and a 4.3 MB .lha, all through winlaunch on Windows 11.
