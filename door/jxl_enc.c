@@ -18,6 +18,8 @@
 #include "win32.h"
 #else
 #include <dlfcn.h>
+#include <limits.h>
+#include <unistd.h>
 #endif
 
 #include <jxl/encode.h>
@@ -60,9 +62,27 @@ static bool load(void)
     lib = win_lib_open(path);
 #define dlsym(lib, name) win_lib_sym(lib, name)
 #else
+    /* Beside the door first (the release ships libjxl there), then the system copy. */
     static const char *const NAMES[] = { "libjxl.so.0.11", "libjxl.so.0.12", "libjxl.so.0.10", "libjxl.so.0.9",
                                          "libjxl.so.0.8", "libjxl.so.0.7", "libjxl.so" };
+    char dir[PATH_MAX];
+    ssize_t n = readlink("/proc/self/exe", dir, sizeof(dir) - 1);
 
+    if (n > 0)
+    {
+        char *slash;
+        dir[n] = '\0';
+        if ((slash = strrchr(dir, '/')) != NULL)
+        {
+            slash[1] = '\0';
+            for (size_t i = 0; lib == NULL && i < sizeof(NAMES) / sizeof(NAMES[0]); i++)
+            {
+                char path[PATH_MAX];
+                snprintf(path, sizeof(path), "%s%s", dir, NAMES[i]);
+                lib = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+            }
+        }
+    }
     for (size_t i = 0; lib == NULL && i < sizeof(NAMES) / sizeof(NAMES[0]); i++)
         lib = dlopen(NAMES[i], RTLD_NOW | RTLD_LOCAL);
 #endif

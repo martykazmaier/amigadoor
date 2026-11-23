@@ -28,3 +28,6 @@ HANDOFF.md
 
 # Test-harness build output
 tools/*.exe
+
+# Linux release zips are built on the release workflow, not stored here
+dist/AmigaDoor-Linux-*.zip

@@ -5,7 +5,7 @@
 # The core uses libm without linking it (log10l): the door links libm whether it needs it or not, so it is there.
 CC = gcc
 CFLAGS = -Wall -Wextra -Wno-format-truncation -std=c11 -O2 -Ijxl_include
-LDFLAGS = -Wl,--no-as-needed -lm -ldl
+LDFLAGS = -Wl,--no-as-needed -lm -ldl -Wl,-rpath,'$$ORIGIN'
 
 OBJ = main.o door.o apc.o jxl_enc.o core.o play.o session.o
 

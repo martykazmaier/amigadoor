@@ -1,0 +1,61 @@
+name: Linux builds
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    name: Linux ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x86_64
+          - runner: ubuntu-22.04-arm
+            arch: aarch64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake ninja-build git pkg-config \
+            patchelf zip liblcms2-dev zlib1g-dev
+
+      - name: Build libjxl 0.11.1
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --recurse-submodules --shallow-submodules \
+            --branch v0.11.1 https://github.com/libjxl/libjxl.git "$RUNNER_TEMP/libjxl"
+          cmake -S "$RUNNER_TEMP/libjxl" -B "$RUNNER_TEMP/libjxl/build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$RUNNER_TEMP/jxl" \
+            -DCMAKE_INSTALL_LIBDIR=lib \
+            -DBUILD_TESTING=OFF \
+            -DJPEGXL_ENABLE_TOOLS=OFF \
+            -DJPEGXL_ENABLE_BENCHMARK=OFF \
+            -DJPEGXL_ENABLE_EXAMPLES=OFF \
+            -DJPEGXL_ENABLE_MANPAGES=OFF \
+            -DJPEGXL_ENABLE_JNI=OFF \
+            -DJPEGXL_ENABLE_SJPEG=OFF \
+            -DJPEGXL_ENABLE_OPENEXR=OFF \
+            -DJPEGXL_ENABLE_DEVTOOLS=OFF \
+            -DJPEGXL_ENABLE_JPEGLI=OFF \
+            -DJPEGXL_ENABLE_DOXYGEN=OFF
+          cmake --build "$RUNNER_TEMP/libjxl/build" --target install -j"$(nproc)"
+
+      - name: Package the door
+        env:
+          JXL_PREFIX: ${{ runner.temp }}/jxl
+          JXL_SRC: ${{ runner.temp }}/libjxl
+        run: bash dist/package-linux.sh
+
+      - name: Upload to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload v2026.11.22 "dist/AmigaDoor-Linux-${{ matrix.arch }}.zip" --clobber
