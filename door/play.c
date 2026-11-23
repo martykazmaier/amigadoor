@@ -25,8 +25,8 @@
  *              caller's pointer goes past the picture's edge the Amiga's is pushed against that edge too, which brings
  *              the two back together after any drift.
  *   F12        (or Ctrl-Q, for keyboards whose F12 needs Fn) pauses the Amiga and shows the session menu: load a
- *              title from the library, upload one by ZMODEM (kept for the caller's next visit), their kept disks, next
- *              disk, the machine (A500 or A1200) and PAL or NTSC, sound, reset, back to the BBS.
+ *              title from the library (a lightbar; S searches the names), upload one by ZMODEM (kept for the caller's next visit),
+ *              their kept disks, next disk, the machine (A500 or A1200) and PAL or NTSC, sound, reset, back to the BBS.
  *              Loading a title or changing the machine ends this session with PLAY_RELOAD, and the door starts the
  *              Amiga again.
  */
@@ -1222,13 +1222,184 @@ static void show(outbuf_t *o)
 
 typedef enum { MENU_RESUME, MENU_QUIT, MENU_RELOAD, MENU_HANGUP } menu_result_t;
 
+#define LIBRARY_PAGE 18             /* one name a line, so twice the old 9 (those used a second line for the blurb) */
+#define LIBRARY_FIND 40
+
+static char fold_ascii(char c)
+{
+    return (c >= 'A' && c <= 'Z') ? (char)(c + ('a' - 'A')) : c;
+}
+
+/* Whether the game's name contains the search, ignoring the case of ASCII letters. An empty search matches all. */
+static bool name_has(const char *name, const char *query)
+{
+    size_t qlen = strlen(query);
+    if (qlen == 0)
+        return true;
+    for (; *name != '\0'; name++)
+    {
+        size_t i;
+        for (i = 0; i < qlen; i++)
+        {
+            if (name[i] == '\0' || fold_ascii(name[i]) != fold_ascii(query[i]))
+                break;
+        }
+        if (i == qlen)
+            return true;
+    }
+    return false;
+}
+
+typedef enum
+{
+    MKEY_NONE, MKEY_UP, MKEY_DOWN, MKEY_PGUP, MKEY_PGDN, MKEY_HOME, MKEY_END,
+    MKEY_ENTER, MKEY_ESC, MKEY_CHAR, MKEY_HANGUP
+} menu_key_t;
+
+/* One menu key. Arrows, Page Up/Down, Home and End arrive as the sequences SyncTERM and a VT send
+ * (CSI A/B, CSI V/U and CSI 5~/6~, CSI H/K and CSI 1~/4~). A leaked key report (CSI = code K) counts too. */
+static menu_key_t read_menu_key(int *ch)
+{
+    char params[40];
+    int c = read_key(600000), n = 0, final;
+
+    *ch = 0;
+    if (c == -2)
+        return MKEY_HANGUP;
+    if (c == -1)
+        return MKEY_NONE;
+    if (c == '\r' || c == '\n')
+        return MKEY_ENTER;
+    if (c != 27)
+    {
+        *ch = c;
+        return MKEY_CHAR;
+    }
+    c = read_key(50);
+    if (c == -2)
+        return MKEY_HANGUP;
+    if (c != '[' && c != 'O')
+        return MKEY_ESC;
+    for (;;)
+    {
+        c = read_key(50);
+        if (c == -2)
+            return MKEY_HANGUP;
+        if (c < 0)
+            return MKEY_ESC;
+        if (c >= 0x40 && c <= 0x7E)
+            break;
+        if (n + 1 < (int)sizeof(params))
+            params[n++] = (char)c;
+    }
+    params[n] = '\0';
+    final = c;
+    if (params[0] == '=' && (final == 'K' || final == 'k'))
+    {
+        int code;
+        if (final == 'k')
+            return MKEY_NONE;                       /* a key going up: the press already moved the bar */
+        code = atoi(params + 1);
+        if (code == 103 || code == 72)
+            return MKEY_UP;
+        if (code == 108 || code == 80)
+            return MKEY_DOWN;
+        if (code == 104 || code == 73)
+            return MKEY_PGUP;
+        if (code == 109 || code == 81)
+            return MKEY_PGDN;
+        if (code == 102 || code == 71)
+            return MKEY_HOME;
+        if (code == 107 || code == 79)
+            return MKEY_END;
+        return MKEY_NONE;
+    }
+    if (final == 'A')
+        return MKEY_UP;
+    if (final == 'B')
+        return MKEY_DOWN;
+    if (final == 'V' || (final == '~' && params[0] == '5'))
+        return MKEY_PGUP;
+    if (final == 'U' || (final == '~' && params[0] == '6'))
+        return MKEY_PGDN;
+    if (final == 'H' || (final == '~' && (params[0] == '1' || params[0] == '7')))
+        return MKEY_HOME;
+    if (final == 'F' || final == 'K' || (final == '~' && (params[0] == '4' || params[0] == '8')))
+        return MKEY_END;
+    return MKEY_NONE;
+}
+
+/* One library row. The bar is inverse; the marker is CP437 0x10 (a triangle), one byte, not a UTF-8 arrow. */
+static void library_row(outbuf_t *o, const char *name, bool on)
+{
+    char shown[80];
+
+    snprintf(shown, sizeof(shown), " %c %-74.74s", on ? '\x10' : ' ', name);
+    if (on)
+        out_fmt(o, "\033[1;37;44m%s\033[0m\r\n", shown);
+    else
+        out_fmt(o, "\033[0;36m%s\033[0m\r\n", shown);
+}
+
+/* 1: query replaced, 0: left as it was, -1: the caller has gone. A blank line clears the search. */
+static int ask_search(outbuf_t *o, const char *side, char *query)
+{
+    char edit[LIBRARY_FIND + 1];
+    int n = (int)strlen(query);
+
+    snprintf(edit, sizeof(edit), "%s", query);
+    menu_title(o, "Search the library");
+    out_fmt(o, "\033[0;37m  Part of the game's name. A blank line shows every %s game.\r\n\r\n"
+               "\033[1;37m  Search: \033[1;36m", side);
+    out_str(o, edit);
+    out_str(o, "\033[?25h");
+    show(o);
+    for (;;)
+    {
+        int c = read_key(600000);
+        if (c == -2)
+            return -1;
+        if (c == '\r' || c == '\n')
+        {
+            snprintf(query, LIBRARY_FIND + 1, "%s", edit);
+            out_str(o, "\033[?25l");
+            show(o);
+            return 1;
+        }
+        if (c == 27)
+        {
+            drain_input(50);
+            out_str(o, "\033[?25l");
+            show(o);
+            return 0;
+        }
+        if ((c == 8 || c == 127) && n > 0)
+        {
+            edit[--n] = '\0';
+            out_str(o, "\b \b");
+            show(o);
+            continue;
+        }
+        if (c >= 32 && c < 127 && n + 1 < (int)sizeof(edit))
+        {
+            edit[n++] = (char)c;
+            edit[n] = '\0';
+            out_fmt(o, "%c", c);
+            show(o);
+        }
+    }
+}
+
 /* The library, a page at a time. MENU_RELOAD when a title was picked (drive.txt now holds it). */
 static menu_result_t menu_library(outbuf_t *o)
 {
-    static title_t titles[200];
-    int all = library_load(titles, 200), n = 0, page = 0, pages;
+    title_t *titles = NULL;
+    int *pick = NULL;
+    int all = library_load(&titles), n = 0, at = 0;
+    char query[LIBRARY_FIND + 1] = "";
     drive_t now;
     const char *side;
+    menu_result_t result = MENU_RESUME;
 
     /* Only the games for the machine the caller is on (sysop, 2026-10-28): the other machine's are a switch away */
     drive_load(&now);
@@ -1236,57 +1407,110 @@ static menu_result_t menu_library(outbuf_t *o)
     for (int i = 0; i < all; i++)
         if (library_a1200(&titles[i]) == now.a1200)
             titles[n++] = titles[i];
-    pages = (n + 8) / 9;
-
-    for (;;)
+    if (n == 0)
     {
-        int c;
         char heading[64];
         snprintf(heading, sizeof(heading), "The library: %s games", side);
         menu_title(o, heading);
-        if (n == 0)
-        {
-            out_fmt(o, "\033[1;33m  The sysop hasn't put any %s games in the library yet.\r\n\r\n"
-                       "\033[0;37m  (F12, A switches machine.) Any key goes back.\033[0m", side);
-            show(o);
-            return read_key(600000) == -2 ? MENU_HANGUP : MENU_RESUME;
-        }
-        for (int i = 0; i < 9 && page * 9 + i < n; i++)
-        {
-            const title_t *t = &titles[page * 9 + i];
-            out_fmt(o, "\033[1;37m  [%d] \033[1;36m%s\033[0;34m  %s\r\n\033[0;37m      %s\r\n", i + 1, t->title,
-                    t->machine, t->about);
-        }
-        out_fmt(o, "\r\n\033[0;37m  1-9 = load it and start%s   any other key = back\r\n"
-                   "  The %s games are under F12, A (the other machine).\033[0m",
-                pages > 1 ? "   N/P = next/previous page" : "", now.a1200 ? "Amiga 500" : "Amiga 1200");
+        out_fmt(o, "\033[1;33m  The sysop hasn't put any %s games in the library yet.\r\n\r\n"
+                   "\033[0;37m  (F12, A switches machine.) Any key goes back.\033[0m", side);
         show(o);
-        c = read_key(600000);
-        if (c == -2)
-            return MENU_HANGUP;
-        if ((c == 'n' || c == 'N') && page + 1 < pages)
-            page++;
-        else if ((c == 'p' || c == 'P') && page > 0)
-            page--;
-        else if (c >= '1' && c <= '9' && page * 9 + (c - '1') < n)
+        result = read_key(600000) == -2 ? MENU_HANGUP : MENU_RESUME;
+        goto done;
+    }
+    if ((pick = malloc((size_t)n * sizeof(*pick))) == NULL)
+    {
+        menu_title(o, "The library");
+        out_str(o, "\033[1;33m  The library couldn't be loaded.\r\n\r\n\033[0;37m  Any key goes back.\033[0m");
+        show(o);
+        result = read_key(600000) == -2 ? MENU_HANGUP : MENU_RESUME;
+        goto done;
+    }
+
+    for (;;)
+    {
+        int ch = 0, matches = 0, top;
+        char heading[80];
+        menu_key_t key;
+
+        for (int i = 0; i < n; i++)
+            if (name_has(titles[i].title, query))
+                pick[matches++] = i;
+        if (matches == 0)
+            at = 0;
+        else if (at >= matches)
+            at = matches - 1;
+        top = matches == 0 ? 0 : (at / LIBRARY_PAGE) * LIBRARY_PAGE;
+        if (query[0] == '\0')
+            snprintf(heading, sizeof(heading), "The library: %s games", side);
+        else
+            snprintf(heading, sizeof(heading), "%s games: \"%s\"", side, query);
+        menu_title(o, heading);
+        if (matches == 0)
+            out_fmt(o, "\033[1;33m  Nothing matches \"%s\".\r\n\r\n"
+                       "\033[0;37m  S searches again (a blank search shows every game)\r\n"
+                       "  Esc goes back.\033[0m", query);
+        else
+        {
+            for (int i = 0; i < LIBRARY_PAGE && top + i < matches; i++)
+                library_row(o, titles[pick[top + i]].title, top + i == at);
+            out_fmt(o, "\r\n\033[0;37m  Up/Down  PgUp/PgDn  Home/End   Enter loads it   S searches\r\n"
+                       "  Esc goes back. The %s games are under F12, A.\033[0m",
+                    now.a1200 ? "Amiga 500" : "Amiga 1200");
+        }
+        show(o);
+        key = read_menu_key(&ch);
+        if (key == MKEY_HANGUP)
+        {
+            result = MENU_HANGUP;
+            break;
+        }
+        if (key == MKEY_UP && at > 0)
+            at--;
+        else if (key == MKEY_DOWN && at + 1 < matches)
+            at++;
+        else if (key == MKEY_PGUP)
+            at = at > LIBRARY_PAGE ? at - LIBRARY_PAGE : 0;
+        else if (key == MKEY_PGDN && matches > 0)
+            at = at + LIBRARY_PAGE < matches ? at + LIBRARY_PAGE : matches - 1;
+        else if (key == MKEY_HOME)
+            at = 0;
+        else if (key == MKEY_END && matches > 0)
+            at = matches - 1;
+        else if (key == MKEY_CHAR && (ch == 's' || ch == 'S' || ch == '/'))
+        {
+            int found = ask_search(o, side, query);
+            if (found < 0)
+            {
+                result = MENU_HANGUP;
+                break;
+            }
+            if (found > 0)
+                at = 0;
+        }
+        else if (key == MKEY_ENTER && matches > 0)
         {
             drive_t d;
             const char *why = NULL;
-            if (library_use(&titles[page * 9 + (c - '1')], &d, &why) && drive_save(&d))
-                return MENU_RELOAD;
+            if (library_use(&titles[pick[at]], &d, &why) && drive_save(&d))
+            {
+                result = MENU_RELOAD;
+                break;
+            }
             menu_title(o, "The library");
             out_fmt(o, "\033[1;33m  That title couldn't be loaded: %s\r\n\r\n\033[0;37m  Any key goes back.\033[0m",
                     why ? why : "the BBS couldn't store it");
             show(o);
-            return read_key(600000) == -2 ? MENU_HANGUP : MENU_RESUME;
+            result = read_key(600000) == -2 ? MENU_HANGUP : MENU_RESUME;
+            break;
         }
-        else
-        {
-            if (c == 27)
-                drain_input(50);
-            return MENU_RESUME;
-        }
+        else if (key == MKEY_ESC || key == MKEY_CHAR)
+            break;
     }
+done:
+    free(pick);
+    free(titles);
+    return result;
 }
 
 static menu_result_t ask_start(outbuf_t *o, drive_t *dp);

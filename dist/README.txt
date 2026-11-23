@@ -6,7 +6,7 @@ of UAE) runs on the BBS machine and the caller plays it in SyncTERM: the
 Amiga's screen is sent as JPEG XL pictures, with its sound. Callers load games
 from your library or upload their own by ZMODEM (kept for their next visit),
 and switch between the A500 and the A1200 from the F12 menu.
-Built 2026-10-28. Nothing to compile and nothing else to install, except the
+Built 2026-11-22. Nothing to compile and nothing else to install, except the
 Kickstart ROMs and the games (see THE ROMS and LIBRARY below: they can't be
 included).
 
@@ -121,7 +121,8 @@ For example:
           order; callers change disks with F12, D. Floppy games load at
           the speed of the game's own loader, so give them a moment.
   Up to 32 MB a file. Not .IPF, .DMS or .ZIP.
-- Lines starting with # are comments. Callers see 9 games a page.
+- Lines starting with # are comments. Callers see 18 names a page on a
+  lightbar (Up/Down, PgUp/PgDn, Home/End, Enter). S searches.
 - Games that boot to a Workbench desktop and want an icon double-clicked
   work (the caller has the mouse) but are awkward; whole-screen games suit
   the door best.
@@ -135,7 +136,7 @@ WHAT CALLERS SEE
 ----------------
 A disclaimer about the ROMs, a short how-to, then an Amiga 1200 waiting for a
 disk. Everything else is in the F12 menu (Ctrl-Q opens it too):
-  L  load a game from the library (this machine's games)
+  L  load a game from the library (lightbar; S searches)
   U  upload their own .ADF, .LHA or .HDF by ZMODEM (SyncTERM: Alt-U); kept
      for their next visit, up to 20 a caller
   M  boot or delete a kept disk
@@ -180,9 +181,12 @@ TROUBLESHOOTING
 
 CREDITS AND LICENCES
 --------------------
+Amiga door was written by JSONBourne and originally published at
+https://github.com/omniphil/AmigaDoor
 The door is free software under the GNU General Public License, version 2 or
 (at your option) any later version: licenses\GPL.TXT. Its source is in
-source\.
+source\ and at https://github.com/martykazmaier/amigadoor
+This Windows build keeps that licence and that attribution.
 PUAE (libretro-uae, from WinUAE and E-UAE) is GPL-2:
 https://github.com/libretro/libretro-uae. No Kickstart is included in it (its
 built-in fallback, AROS, is a free replacement the door doesn't use). Note

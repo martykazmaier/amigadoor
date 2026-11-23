@@ -18,6 +18,8 @@ built (`make win32`, PUAE with llvm-mingw) and tested (`tools/`).
 Everything is in `door/`: the door itself (C, `make`), `build-core.sh` for the core, and `test_door.py`.
 `spike/` is the measuring tool used to decide the design.
 
-The door is free software under the GNU General Public License, version 2 or (at your option) any later version:
-see `LICENSE`. PUAE is GPL-2 too (https://github.com/libretro/libretro-uae). The libjxl headers in
-`door/jxl_include/` carry their own BSD licence.
+The door was written by JSONBourne and originally published at
+https://github.com/omniphil/AmigaDoor. It is free software under the GNU General Public License, version 2 or
+(at your option) any later version: see `LICENSE`. This repository keeps that licence and that attribution.
+PUAE is GPL-2 too (https://github.com/libretro/libretro-uae). The libjxl headers in `door/jxl_include/` carry
+their own BSD licence.

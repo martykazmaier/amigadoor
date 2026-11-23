@@ -70,8 +70,9 @@ two things to watch:
 ## What callers see
 
 The disclaimer, a short how-to, then an Amiga 1200 waiting for a disk. Everything else is in the **F12** menu
-(**Ctrl-Q** opens it too, for keyboards whose F12 needs Fn): load a library title (the Amiga restarts with it, on the
-machine the title asks for), upload their own `.adf` or WHDLoad `.lha` by ZMODEM (kept for their next visit), boot or
+(**Ctrl-Q** opens it too, for keyboards whose F12 needs Fn): load a library title (a CP437 lightbar, 18 names a page, **S** searches;
+the Amiga restarts with it, on the machine the title asks for), upload their own `.adf` or WHDLoad `.lha` by ZMODEM
+(kept for their next visit), boot or
 delete a kept disk (**M**), next disk, **A** the other machine (A500 or A1200; it starts fresh, the disk out), **N** PAL or NTSC
 (restarts it), arrows as joystick or cursor keys, sound, reset (the disk comes out: back to the Kickstart's
 insert-disk screen on the same machine), and **Q** back to the BBS. Nothing is offered for download on the

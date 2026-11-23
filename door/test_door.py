@@ -199,8 +199,10 @@ else:
         send("a")                                    # the Amiga restarts with kept disk 1
     else:
         send("l")
-        wait_for("= load it and start")
-        send(str(args.title))                        # the Amiga restarts with that title
+        wait_for("Enter loads it")
+        for _ in range(args.title - 1):
+            send("\x1b[B")                           # lightbar: down to that title
+        send("\r")                                   # Enter loads it
     if args.swap_at > 0:
         play_for(args.swap_at, boot)
         open_menu()

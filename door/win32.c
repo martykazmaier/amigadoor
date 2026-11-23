@@ -69,6 +69,7 @@ bool conn_open(int comm_type, long long handle)
             g_modes_saved = true;
             SetConsoleMode(g_out, g_out_mode | ENABLE_PROCESSED_OUTPUT | ENABLE_VIRTUAL_TERMINAL_PROCESSING);
         }
+        SetConsoleCP(437);                  /* CP437, the BBS set: not the console's UTF-8 code page */
         SetConsoleOutputCP(437);
     }
     return true;

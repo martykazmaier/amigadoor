@@ -6,6 +6,8 @@
  * has agreed to the ROM disclaimer; everything else is in its F12 menu (play.c): a game from the sysop's library,
  * their own .ADF or WHDLoad .LHA sent up by ZMODEM, the next disk, the machine, and the way back to the BBS. Choosing
  * a game or a machine ends that Amiga session with PLAY_RELOAD and this door starts the next one at once.
+ * Written by JSONBourne. Originally published at https://github.com/omniphil/AmigaDoor
+ * under the GNU GPL, version 2 or (at your option) any later version (../LICENSE).
  * Built the same way as the C64 door (../C64Door), from which most of this file comes.
  *
  * It plays on terminals that draw JPEG XL through the CTerm APC commands (SyncTERM 1.2+): the Amiga runs here and its
@@ -59,7 +61,22 @@ static char g_mine[PATH_MAX];          /* their kept disks, players/<player>; ""
 static void find_door_dir(void)
 {
 #ifdef _WIN32
-    win_exe_dir(g_door_dir, sizeof(g_door_dir));
+    {
+        char library[PATH_MAX];
+        win_exe_dir(g_door_dir, sizeof(g_door_dir));
+        /* The .exe may sit in the project folder, with the library one level down in door/. */
+        snprintf(library, sizeof(library), "%s/library/library.txt", g_door_dir);
+        if (access(library, R_OK) != 0)
+        {
+            snprintf(library, sizeof(library), "%s/door/library/library.txt", g_door_dir);
+            if (access(library, R_OK) == 0)
+            {
+                size_t n = strlen(g_door_dir);
+                if (n + 5 < sizeof(g_door_dir))
+                    memcpy(g_door_dir + n, "/door", 6);
+            }
+        }
+    }
 #else
     ssize_t n = readlink("/proc/self/exe", g_door_dir, sizeof(g_door_dir) - 1);
     char *slash;

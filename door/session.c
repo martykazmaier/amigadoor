@@ -394,20 +394,31 @@ static void trim(char *s)
         *--e = '\0';
 }
 
-int library_load(title_t *titles, int max)
+int library_load(title_t **out)
 {
     char path[600], line[512];
     FILE *f;
-    int n = 0;
+    title_t *titles = NULL;
+    int n = 0, cap = 0;
 
+    *out = NULL;
     path_in(path, sizeof(path), g_door, "library/library.txt");
     if ((f = fopen(path, "r")) == NULL)
         return 0;
-    while (fgets(line, sizeof(line), f) != NULL && n < max)
+    while (fgets(line, sizeof(line), f) != NULL)
     {
         char *a, *b, *c;
         if (line[0] == '#' || (a = strchr(line, '|')) == NULL || (b = strchr(a + 1, '|')) == NULL)
             continue;
+        if (n == cap)
+        {
+            int next = cap == 0 ? 64 : cap * 2;
+            title_t *grown;
+            if (next <= cap || (grown = realloc(titles, (size_t)next * sizeof(*grown))) == NULL)
+                break;                              /* out of memory: keep the titles already read */
+            titles = grown;
+            cap = next;
+        }
         *a = *b = '\0';
         if ((c = strchr(b + 1, '|')) != NULL)
             *c = '\0';
@@ -422,6 +433,7 @@ int library_load(title_t *titles, int max)
         n++;
     }
     fclose(f);
+    *out = titles;
     return n;
 }
 

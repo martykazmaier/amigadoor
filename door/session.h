@@ -90,8 +90,9 @@ bool library_a1200(const title_t *t);
 void drive_guess_machine(drive_t *d);
 
 /* The library: library/library.txt beside the door, "title | description | disk1.adf,disk2.adf | A500" a line
- * (the machine optional, "A1200 NTSC" for an American title) */
-int library_load(title_t *titles, int max);
+ * (the machine optional, "A1200 NTSC" for an American title). Every title is loaded, with no fixed cap
+ * (*titles is malloc'd, NULL when there are none); the caller frees it. */
+int library_load(title_t **titles);
 
 /* A library title's disks and machine, replacing the drive list. False with a reason. */
 bool library_use(const title_t *t, drive_t *d, const char **why);
